@@ -3,10 +3,10 @@ import time
 from math import *
 import itertools
 
-num_bus = 50
-num_rsu = 50
+num_bus = 100
+num_rsu = 10
 num_uav = 20
-num_path = 100
+num_path = 50
 num_passenger = 1
 map_size = 1000
 min_height = 100
@@ -14,15 +14,19 @@ max_height = 150
 poi_radius = 50
 rsu_distance = 50
 time_interval = 1
-simul_time = 5
+simul_time = 1
 
 uav_energy = 100
 uav_cpu = 100
-bus_cpu = 100
+bus_cpu = 500
 rsu_cpu = 100
-
+budget = 500
 bandwidth = 10e6
 
+changed = 1
+
+def Extract(lst):
+    return [item[0] for item in lst]
 
 def dbm_to_watt(dbm):
     """Convert dBm to Watt"""
@@ -44,7 +48,8 @@ class Bus:
         self.closest = []
         self.uav_list = []
         self.preference_list = []
-        self.cpu = round(bus_cpu * random.random(), 2)
+        self.cpu = round(bus_cpu * random.random(), 0)
+        self.price = round(random.uniform(1, 10), 0)  # 자신의 여유분 cpu에 대한 cost 부여
 
     def move(self):
         if self.location == self.path[self.path_index]:
@@ -56,6 +61,31 @@ class Bus:
         self.x = self.location[0]
         self.y = self.location[1]
         # print(f"Bus {self.id} moved to {self.location}")
+
+    def sell_cpu(self, cpu_amount, uav_id):
+        # cpu_amount만큼의 cpu를 UAV에게 판매
+        #if uav_id in self.uav_list.index()
+        global changed
+
+        list = Extract(self.uav_list)
+
+        if uav_id in list:
+            index = list.index(uav_id)
+            for i in range(index):
+                if self.uav_list[i][3] == None:
+                    return 0;
+
+            if self.cpu >= cpu_amount:
+                self.uav_list[index][3] = True
+                self.cpu = round(self.cpu - cpu_amount, 0)
+
+                changed = 1
+
+                return cpu_amount * self.price
+
+            else:
+                return 0;
+        return 0;
 
     def pick_up(self, passengers):
         for p in passengers:
@@ -101,9 +131,12 @@ class UAV:
         self.bus_list = []
         self.preference_list = []
         self.task = [random.randint(1, 100), random.randint(1, 100), random.randint(1, 10)]
-        self.cpu = uav_cpu
+        self.cpu = round(uav_cpu * random.random(), 0)
         self.energy = uav_energy
-
+        self.budget = budget
+        self.buy_cpu = 0  # 구매한 cpu 양 초기화
+        self.bus_list = []  # 구매할 버스 리스트 초기화
+        self.purchase_bus_list = []  # 구매할 버스 리스트 초기화
 
         angle = random.uniform(0, 2 * pi)
         distance = random.uniform(0, poi_radius)
@@ -120,6 +153,23 @@ class UAV:
     def sort_by_distance(self, buses):
         self.closest = sorted(buses, key=lambda bus: ((self.x - bus.x) ** 2 + (self.y - bus.y) ** 2 + (self.z) ** 2) ** 0.5)
 
+    def purchase_cpu(self, range_list, bus_list):
+
+        cost = 0
+        buses_sorted = sorted(bus_list, key=lambda bus: bus.price)
+
+        for bus in buses_sorted:
+
+            if bus.id in (range_list):
+                max_cpu = round(min(self.budget // bus.price, bus.cpu),2)  # budget 내에서 최대한 많은 cpu 구매
+                if max_cpu > 0:
+                    cost = round(bus.sell_cpu(max_cpu, self.id),2)
+                    if cost > 0:
+                        self.buy_cpu += max_cpu
+                        self.budget = round((self.budget -cost), 2)
+                        self.purchase_bus_list.append(bus.id)
+
+        return cost
 
 class Passenger:
     def __init__(self, id):
@@ -186,7 +236,6 @@ if __name__ == "__main__":
 
     for i in range(simul_time):
 
-
         for bus in buses:
             if bus.status == "STOPPED":
                 nearby_passengers = [p for p in passengers if abs(p.source[0] - bus.x) <= 50 and abs(
@@ -221,35 +270,42 @@ if __name__ == "__main__":
 
             transmission_delay = round(uav.task[1] / transmission_rate, 2)
 
-            bus_list = bus.id, bus.cpu
-            uav_list = uav.id, transmission_delay, transmission_rate
+            bus_list = [bus.id, bus.cpu, bus.price]
+            uav_list = [uav.id, transmission_delay, transmission_rate, None]
 
-            if transmission_rate > 1:
+
+            if distance <= 250 and transmission_rate > 1:
                 uav.bus_list.append(bus_list)
                 bus.uav_list.append(uav_list)
 
-            # av.bus_list.append(bus_list)
-            # bus.uav_list.append(uav_list)
-
-            # if distance <=250:
-                # print(f"distnace {distance}m, UAV ({uav.x}, {uav.y}, {uav.z}) and Bus ({bus.x}, {bus.y}) can communicate with {transmission_rate} Mbps ")
-
-        for uav in uavs:
-            uav.bus_list.sort(key=lambda x: x[1], reverse=True)
-
-            print(
-                f"UAV(ID={uav.id}) at ({uav.x}, {uav.y}, {uav.z}) has the following closest buses: {uav.bus_list}")
-
+        # 버스가 자신의 여유분 cpu에 대한 cost를 부여하는 단계
         for bus in buses:
             bus.uav_list.sort(key=lambda x: x[1])
+            print(f"BUS(ID={bus.id}) CPU: {bus.cpu} price : {bus.price} at ({bus.x}, {bus.y}) has the following closest uavs: {bus.uav_list}")
 
-            print(
-                f"BUS(ID={bus.id}) at ({bus.x}, {bus.y}) has the following closest uavs: {bus.uav_list}")
+        # UAV가 버스로부터 cpu를 구매하는 단계
+        while(changed):
 
+            changed = 0
+
+            for uav in uavs:
+                uav.bus_list.sort(key=lambda x: x[1], reverse=True)
+
+                if uav.bus_list:
+
+                    list = Extract(uav.bus_list)
+                    cost = uav.purchase_cpu(list, buses)
+                    if cost :
+                        print(f"UAV {uav.id}, budget {uav.budget} purchased {uav.buy_cpu} cpu from bus {uav.purchase_bus_list}")
+
+
+        # 버스와 UAV의 매칭리스트 초기화
         for uav in uavs:
-            uav.bus_list =[]
+            uav.bus_list = []
 
         for bus in buses:
-            bus.uav_list =[]
+            bus.uav_list = []
+        # 버스와 UAV의 매칭리스트 초기화
+
 
         time.sleep(time_interval)
