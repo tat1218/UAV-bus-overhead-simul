@@ -21,7 +21,7 @@ simul_time = 1
 uav_cpu = 100
 bus_cpu = 100
 rsu_cpu = 100
-budget = 200
+budget = 100
 bandwidth = 10e6
 
 bus_cpu_cycle = 5*10e8
@@ -310,11 +310,13 @@ if __name__ == "__main__":
         # 버스가 자신의 여유분 cpu에 대한 cost를 부여하는 단계
         for bus in buses:
             bus.uav_list.sort(key=lambda x: x[1])
-            print(f"BUS(ID={bus.id}) CPU: {bus.cpu} price : {bus.price} at ({bus.x}, {bus.y}) has the following closest uavs: {bus.uav_list}")
+            if bus.uav_list:
+                print(f"BUS(ID={bus.id}) CPU: {bus.cpu} price : {bus.price} at ({bus.x}, {bus.y}) has the following closest uavs: {bus.uav_list}")
 
         for uav in uavs:
             uav.bus_list.sort(key=lambda x: x[2])
-            print(f"UAV(ID={uav.id}) has the following closest buses: {uav.bus_list}")
+            if uav.bus_list:
+                print(f"UAV(ID={uav.id}) has the following closest buses: {uav.bus_list}")
 
         # UAV가 가장 선호하는 버스로부터 cpu를 구매하는 단계
         while(changed):
@@ -345,20 +347,34 @@ if __name__ == "__main__":
                             uav.remove_list.append(i)
 
             for uav in uavs:
-                temp = len(uav.remove_list)
-                temp_bus_list = deepcopy(uav.bus_list)
-                for i in range(temp):
-                    x = uav.remove_list[i]
-
-                    uav.bus_list.remove(temp_bus_list[x])
-
-                if uav.bus_list:
+                if uav.remove_list:
                     changed = 1
 
+            for uav in uavs:
+                temp = len(uav.remove_list)
+                temp_bus_list = deepcopy(uav.bus_list)
+                temp_uav_remove_list = deepcopy(uav.remove_list)
 
+                #print(uav.id, temp, uav.bus_list)
+                for i in range(temp):
+                    x = temp_uav_remove_list[i]
+                    uav.bus_list.remove(temp_bus_list[x])
+                    uav.remove_list.remove(x)
+
+                #print(uav.id, temp, uav.bus_list)
 
             #changed = 0
 
-        print("end")
+        print("### SIMULATION RESULT ###")
+
+        for bus in buses:
+            bus.uav_list.sort(key=lambda x: x[1])
+            if bus.sell_uav_list:
+                print(f"BUS(ID={bus.id}) CPU: {bus.cpu} has offered following uavs: {bus.sell_uav_list}")
+
+        for uav in uavs:
+            uav.bus_list.sort(key=lambda x: x[2])
+            if uav.purchase_bus_list:
+                print(f"UAV(ID={uav.id}), remain budget={uav.budget} has purchased following buses: {uav.purchase_bus_list}")
 
         time.sleep(time_interval)
