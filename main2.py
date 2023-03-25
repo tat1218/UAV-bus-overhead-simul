@@ -4,9 +4,9 @@ from math import *
 from copy import deepcopy
 import itertools
 
-num_bus = 10
+num_bus = 20
 num_rsu = 10
-num_uav = 5
+num_uav = 10
 num_path = 50
 num_passenger = 1
 map_size = 1000
@@ -25,7 +25,7 @@ rsu_cpu = 100
 budget = 50
 bandwidth = 10e6
 
-bus_cpu_cycle = 5*10e8
+bus_cpu_cycle = 1*10e8
 uav_cpu_cycle = 10e7
 bus_energy = 1000
 uav_energy = 1000
@@ -84,6 +84,7 @@ class Bus:
         if self.cpu >= cpu_amount:
             self.sell_uav_list.append(uav.id)
             self.cpu = round(self.cpu - cpu_amount, 0)
+
             return cpu_amount * self.price
         else:
             return 0;
@@ -131,6 +132,7 @@ class UAV:
         self.preference_list = []
         #self.task = [round(task_cpu_cycle * random.random(), 2), round(task_data_size * random.random(), 2), round(task_delay * random.random(), 2)]
         self.task = [task_cpu_cycle, task_data_size, task_delay]
+        self.task_original = []
         self.cpu = uav_cpu_cycle
         self.energy = uav_energy
         self.budget = budget
@@ -176,8 +178,9 @@ class UAV:
     def overhead_init(self):
         self.T_LOCAL = self.task[0] / self.cpu_cycle
         self.E_LOCAL = self.T_LOCAL * uav_computing_unit_energy * self.cpu_cycle ** 3
+        self.task_original = self.task.copy()
 
-    def purchase_cpu(self, bus_id_list, buses):
+    def purchase_cpu(self, i, bus_id_list, buses):
 
         cost = 0
         buses_sorted = sorted(buses, key=lambda bus: bus.price)
@@ -203,14 +206,17 @@ class UAV:
 
                     if max_cpu > 0:
 
-                        cost = round(bus.sell_cpu(max_cpu, self.id),2)
+                        cost = bus.sell_cpu(max_cpu, self.id)
 
                         if cost > 0:
                             self.buy_cpu += max_cpu
                             self.budget = round((self.budget -cost), 2)
                             self.purchase_bus_list.append(bus.id)
 
+
                             self.task[0] = self.task[0] - max_cpu
+                            self.task[1] = self.task[1] - self.task_original[0] / max_cpu
+                            self.bus_list[i][4] = self.bus_list[i][4] - max_cpu
 
                             #print(f"UAV {self.id}, budget {self.budget} purchased {self.buy_cpu} cpu from bus {self.purchase_bus_list}")
 
@@ -273,8 +279,10 @@ if __name__ == "__main__":
         if all(new_rsu.distance(existing_rsu) >= rsu_distance for existing_rsu in rsus):
             rsus.append(new_rsu)
 
+    # POI 위치 설정
     x,y,z = int(random.uniform(0, map_size)), int(random.uniform(0, map_size)), 0
 
+    # POI로부터 일정거리 이내에 위치하도록 UAV 생성
     uavs = []
     for i in range(num_uav):
         new_uav = UAV(i, x,y,z)
@@ -290,34 +298,11 @@ if __name__ == "__main__":
             uav.overhead_init()
 
         for bus in buses:
-            if bus.status == "STOPPED":
-                nearby_passengers = [p for p in passengers if abs(p.source[0] - bus.x) <= 50 and abs(
-                    p.source[1] - bus.y) <= 50]
-                if len(nearby_passengers) > 0:
-                    bus.pick_up(nearby_passengers)
-                    bus.status = "RUNNING"
-                else:
-                    bus.move()
-
-            elif bus.status == "RUNNING":
-                nearby_passengers = [p for p in bus.passengers if abs(p.destination[0] - bus.x) <= 50 and abs(
-                    p.destination[1] - bus.y) <= 50]
-                if len(nearby_passengers) > 0:
-                    bus.drop_off()
-                    bus.pick_up(nearby_passengers)
-                    bus.status = "STOPPED"
-                else:
-                    bus.move()
-            else:
-                bus.move()
+            bus.move()
 
         for uav, bus in itertools.product(uavs, buses):
             distance = int (((uav.x - bus.x) ** 2 + (uav.y - bus.y) ** 2 + (uav.z) ** 2) ** 0.5)
 
-            # freq_m = (3 * 10**8) / (2 * 10**9)
-            # sinr = dbm_to_watt(calc_sinr_uav_bus(30, 2*(10**9), distance, 0, -114, 10e6))
-
-            # sinr = dbm_to_watt(30) * ((distance) ** (-3.4)) / dbm_to_watt(-114)
             sinr = dbm_to_watt(20 - (131 + 42.8 * log10(distance/1000)) + 114)
             transmission_rate = round(bandwidth * log2(1 + sinr) / 1024 / 1024, 2)
 
@@ -325,7 +310,6 @@ if __name__ == "__main__":
 
             bus_list = [bus.id, bus.cpu, bus.price, transmission_rate, bus.cpu]
             uav_list = [uav.id, transmission_delay, transmission_rate, 0]
-
 
             if distance <= 250 and transmission_rate > 1:
                 uav.bus_list.append(bus_list)
@@ -341,8 +325,8 @@ if __name__ == "__main__":
             if uav.bus_list:
                 print(f"UAV(ID={uav.id}) has the following closest buses: {uav.bus_list}")
 
-        # UAV가 가장 선호하는 버스로부터 cpu를 구매하는 단계
 
+        # UAV가 가장 선호하는 버스로부터 cpu를 구매하는 단계
 
         while(changed):
 
@@ -359,15 +343,15 @@ if __name__ == "__main__":
                     for i in range(len(bus_id_list)):
 
                         # offloading 할 때와 local 처리할때의 시간과 에너지 소비 비교
-                        T_local = round(uav.task[0] / uav.cpu_cycle, 2)
-                        E_local = round(T_local * uav_computing_unit_energy *  uav.cpu_cycle ** 3, 2)
+                        #T_local = round(uav.task[0] / uav.cpu_cycle, 2)
+                        #E_local = round(T_local * uav_computing_unit_energy *  uav.cpu_cycle ** 3, 2)
                         T_transmission = round(uav.task[1] / temp_bus_list[i][3], 2)
                         T_offload = round(uav.task[0] / temp_bus_list[i][4], 2)
                         E_transmission = round(T_transmission * uav_transmission_unit_energy, 2)
                         E_offload = round(T_offload * bus_computing_unit_energy * bus_cpu_cycle ** 3, 2)
                         #print(T_local, E_local, T_transmission, T_offload, E_transmission, E_offload)
 
-                        cost = uav.purchase_cpu(bus_id_list[i], buses)
+                        cost = uav.purchase_cpu(i, bus_id_list[i], buses)
 
                         if cost > 0:
                             uav.remove_list.append(i)
@@ -375,6 +359,7 @@ if __name__ == "__main__":
                             uav.T_offload = uav.T_offload + T_offload
                             uav.E_transmission = uav.E_transmission + E_transmission
                             uav.E_offload = uav.E_offload + E_offload
+
 
             for uav in uavs:
                 if uav.remove_list:
@@ -385,15 +370,10 @@ if __name__ == "__main__":
                 temp_bus_list = deepcopy(uav.bus_list)
                 temp_uav_remove_list = deepcopy(uav.remove_list)
 
-                #print(uav.id, temp, uav.bus_list)
                 for i in range(temp):
                     x = temp_uav_remove_list[i]
                     uav.bus_list.remove(temp_bus_list[x])
                     uav.remove_list.remove(x)
-
-                #print(uav.id, temp, uav.bus_list)
-
-            #changed = 0
 
         print("### SIMULATION RESULT ###")
 
@@ -413,4 +393,4 @@ if __name__ == "__main__":
         for uav in uavs:
             print(f"UAV(ID={uav.id}) has overhead : {uav.overhead}")
 
-        time.sleep(time_interval)
+        #time.sleep(time_interval)
