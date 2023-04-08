@@ -460,7 +460,7 @@ if __name__ == "__main__":
                     #print(f"Bus({bus.id}) Demand Sum : {round(demand_sum_from_uav, 2)}")
                     temp_price = bus.price + (demand_sum_from_uav - bus.MAX_CPU) / sigma_speed
 
-                    if abs((temp_price - bus.price)/bus.price) > (1 / sigma_speed):
+                    if abs((temp_price - bus.price)/bus.price) >= (1 / sigma_speed):
                         bus.price = temp_price
                         iteration = 1
                         #break
