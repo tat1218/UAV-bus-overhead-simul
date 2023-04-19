@@ -3,6 +3,7 @@ import time
 import math
 from copy import deepcopy
 import itertools
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.signal import savgol_filter
@@ -20,7 +21,7 @@ rsu_distance = 50 # RSU가 설치될 때 서로간의 최소 이격거리
 time_interval = 1 
 simul_time = 200 # 시뮬레이션을 반복하는 횟수(t)
 bus_step = 10 # 버스의 숫자를 변화시키는 횟수(x축)
-uav_step = 5 # UAV의 숫자를 변화시키는 횟수
+budget_step = 5 # budget 변화 횟수
 task_cpu_cycle = 20 # 단위 TASK 수행에 요구되는 CPU사이클
 task_data_size = 20 # 단위 TASK의 파일용량(MB)
 task_delay= 10 # 단위 TASK 수행의 최대허용 딜레이(초)
@@ -28,10 +29,10 @@ task_delay= 10 # 단위 TASK 수행의 최대허용 딜레이(초)
 bus_cpu_cycle = 100	# 버스의 최대 cpu 사이클
 rsu_cpu_cycle = 100 # RSU의 최대 cpu 사이클
 uav_cpu_cycle = 10 # UAV의 최대 cpu 사이클
-budget = 50 # UAV의 최대 budget (이 budget을 이용하여 버스나 RSU로부터 cpu를 구매)
+budget = 70 # UAV의 최대 budget (이 budget을 이용하여 버스나 RSU로부터 cpu를 구매)
 sigma_speed = 1000 # 게임이론을 적용해서 버스가 자신의 cpu가격을 변화시킬때 변화값을 판별하기 위한 값
 
-alpha = 0.5 (overhead를 결정할 때, 딜레이와 에너지의 비율)
+alpha = 0.5 #overhead를 결정할 때, 딜레이와 에너지의 비율
 
 bandwidth = 10e6
 bus_energy = 1000 #(사용안함)
@@ -112,7 +113,7 @@ def simulation(time):
                     if uav_bus_near_matrix[i][j] > 0:
                         uav_has_more_than_2bus[j] = 1
 
-		iter_count = 0
+        iter_count = 0
 
         while(iteration):
             
@@ -137,7 +138,7 @@ def simulation(time):
                     bus_id_list = Extract(uav.bus_list) # 주변 버스의 ID를 bus_id_list에 대입
 
                     # 게임이론을 적용하기 위한 값 계산
-					for k in range(len(uav.bus_list)):
+                    for k in range(len(uav.bus_list)):
                         summa += uav.bus_list[k][2]
                         if uav.bus_list[k][2] > 0:
                             price_num += 1
@@ -152,9 +153,13 @@ def simulation(time):
                         busid = bus_id_list[i]
 						
 						# 게임이론에 따라 UAV가 버스로부터 구입할 수 있는 최대의 CPU사이클 계산
-                        MAX_CPU = (uav.BUDGET + 1 * summa) / (buses[busid].price * price_num) - 1
+                        try:
+                            MAX_CPU = (uav.BUDGET + 1 * summa) / (buses[busid].price * price_num) - 1
+                        except:
+                            print("!!! zero division ",uav.BUDGET, summa, buses[busid].price, price_num)
+                            print("history : ",buses[busid].price_history)
                         
-						if MAX_CPU > 0:
+                        if MAX_CPU > 0:
                             bus_uav_list[busid][uav.id] = MAX_CPU
                            
             			
@@ -181,30 +186,30 @@ def simulation(time):
                     if abs((temp_price - bus.price)/bus.price) >= (1 / sigma_speed):
 						
 						# 변경된 price와 기존 price의 차이가 threshold 이상이지만, 2회전 price와 가격차이가 크지 않은지 검사
-						if abs(bus.old_price - temp_price) <= (1 / sigma_speed) * 2:
+                        if abs(bus.old_price - temp_price) <= (1 / sigma_speed) * 2:
                             no_change_count += 1
                         
 						# 현재 price를 변경
-						else :
+                        else :
                             bus.old_price = bus.price
                             bus.price = temp_price
                             bus.price_history.append(temp_price)
                             iteration = 1
                     
 					# price를 변경하지 않은 버스의 대수를 계산
-					else:
+                    else:
                         no_change_count += 1
 
 			# 모든 버스가 더이상 price를 변경하지 않았다면 가격변경 중단
             
-			if no_change_count == num_list:
+            if no_change_count == num_list:
                 iteration = 0
 			
 			# 버스가 price를 바꿔가다가 더이상 바꾸지 않으면 while문을 벗어나야 하는데,
 			# price를 계속 바꾸어 무한루프에 빠지는 현상이 있어서, 그걸 벗어나기 위해 iter_count를 사용
 			# iter_count가 1000이상이면 price를 더이상 바꾸지 않고 중단		
             
-			if iter_count > 1000:
+            if iter_count > 1000:
                 iteration = 0
 
 
@@ -231,7 +236,7 @@ def simulation(time):
 		# 앞선 버스가 price를 결정하는 부분과 일정부분 동일
 		# 더이상 버스로부터 CPU를 구매하는 UAV가 없을 때까지 반복
         
-		n_th = 0
+        n_th = 0
         while(changed):
             n_th +=1
             changed = 0
@@ -271,7 +276,7 @@ def simulation(time):
 			
 			# CPU를 구매한 UAV가 존재한다면 반복
             
-			for uav in uavs:
+            for uav in uavs:
                 if uav.remove_list:
                     changed = 1
 			
@@ -528,6 +533,7 @@ if __name__ == "__main__":
     
     print("### SIMULATION START ###")
 
+    # bus init
     paths = []
     for i in range(num_bus):
         path = [(random.randint(0, map_size), random.randint(0, map_size))]
@@ -555,24 +561,22 @@ if __name__ == "__main__":
         new_uav = UAV(i, x,y,z)
         uavs.append(new_uav)
 
-    aaa = int(num_bus / bus_step)
-    bbb = int(num_uav / uav_step)
-
+    bus_diff = int(num_bus / bus_step)
+    budget_diff = 10
     temp_bus_num = num_bus
     temp_uav_num = num_uav
     buses2 = deepcopy(buses)
     uavs2 = deepcopy(uavs)
 
     AVE = []
-    for i in range(uav_step):
+    for i in range(budget_step):
         AVE.append([])
         for j in range(bus_step):
             AVE[i].append(0)
 	
 	# 버스의 대수를 점점 줄여나가면서 시뮬레이션
     
-	for k in range(uav_step):
-
+    for k in range(budget_step):
         buses = []
         buses = deepcopy(buses2)
         num_bus = temp_bus_num
@@ -587,6 +591,8 @@ if __name__ == "__main__":
 
             for uav in uavs:
                 uav.overhead_list2 = []
+
+            print(f"### budget:{budget} bus num:{num_bus} simulation start")
 
             simulation(simul_time)
 
@@ -610,29 +616,28 @@ if __name__ == "__main__":
             AVE[k][m] = round(Average(ave), 2)
             #print(f"UAV overhead : {AVE}, Under : {under}, Upper : {upper}")
 
-            num_bus = num_bus - aaa
+            num_bus = num_bus - bus_diff
 
-            for j in range(aaa):
+            for j in range(bus_diff):
                 del buses[-1]
 
             for bus in buses:
                 bus.init2()
 
-        num_uav = num_uav - bbb
-        for j in range(bbb):
-            del uavs[-1]
+        budget = budget - budget_diff
 
 
-    x = np.arange(0,bus_step)
+    x = np.arange(1,bus_step+1)
     x = np.flip(x)
     x = x * temp_bus_num / bus_step
 
-    plt.plot(x, AVE[0], label='UAV=10')
-    plt.plot(x, AVE[1], label='UAV=8')
-    plt.plot(x, AVE[2], label='UAV=6')
-    plt.plot(x, AVE[3], label='UAV=4')
-    plt.plot(x, AVE[4], label='UAV=2')
+    plt.plot(x, AVE[0], label='budget=70')
+    plt.plot(x, AVE[1], label='budget=60')
+    plt.plot(x, AVE[2], label='budget=50')
+    plt.plot(x, AVE[3], label='budget=40')
+    plt.plot(x, AVE[4], label='budget=30')
 
+    plt.gca().invert_xaxis()
     plt.xlabel('# of buses')
     plt.ylabel('UAV overhead')
     plt.legend(loc='upper right')
