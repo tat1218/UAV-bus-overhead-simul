@@ -22,6 +22,8 @@ time_interval = 1
 simul_time = 200 # 시뮬레이션을 반복하는 횟수(t)
 bus_step = 10 # 버스의 숫자를 변화시키는 횟수(x축)
 uav_step = 5 # UAV의 숫자를 변화시키는 횟수
+bus_speed = 6.417 # m/s = 23.1km/h / 참고 : https://news.seoul.go.kr/traffic/archives/285
+bus_speed_city = 5.333 # m/s = 19.2km/h
 task_cpu_cycle = 20 # 단위 TASK 수행에 요구되는 CPU사이클
 task_data_size = 20 # 단위 TASK의 파일용량(MB)
 task_delay= 10 # 단위 TASK 수행의 최대허용 딜레이(초)
@@ -294,6 +296,9 @@ def simulation(time):
 
     return 0
 
+def Distance(x1, y1, x2, y2):
+    return math.sqrt((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2))
+
 def Average(lst):
     return sum(lst) / len(lst)
 
@@ -310,7 +315,7 @@ class Bus:
     def __init__(self, id, path):
         self.id = id
         self.type = 0      # 0이면 버스, 1이면 RSU
-        self.location = [0, 0]
+        self.location = [0.0, 0.0]
         self.x = self.location[0]
         self.y = self.location[1]
         self.passengers = []
@@ -327,6 +332,7 @@ class Bus:
         self.price = 1 # 자신의 여유분 cpu에 대한 cost 부여
         self.old_price = 1
         self.price_history = []
+        self.speed = bus_speed if self.type==0 else 0
 
     def init2(self):
         self.location = [0, 0]
@@ -351,13 +357,23 @@ class Bus:
 
     def move(self):
         if self.type == 0:
-            if self.location == self.path[self.path_index]:
+            move_dist = self.speed
+            while move_dist>0:
                 self.path_index += 1
                 if self.path_index == len(self.path):
                     self.path_index = 0
-            self.location = self.path[self.path_index]
-            self.x = self.location[0]
-            self.y = self.location[1]
+                p = self.path[self.path_index]
+                d = Distance(self.x,self.y,p[0],p[1])
+                if d>move_dist:                    
+                    self.x = self.x + (p[0]-self.location[0])*(move_dist/d)
+                    self.y = self.y + (p[1]-self.location[1])*(move_dist/d)
+                    self.location = [self.x,self.y]
+                    move_dist = 0
+                else:
+                    move_dist = move_dist - d
+                    self.location = p
+                    self.x = self.location[0]
+                    self.y = self.location[1]
             # print(f"Bus {self.id} moved to {self.location}")
 
     def sell_cpu(self, cpu_amount, uav_id):
