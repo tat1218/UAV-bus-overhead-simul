@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from scipy.signal import savgol_filter
 
+EPSILON = 0.00001
+
 num_bus = 50  # 운행하는 버스의 대수(버스별로 자기 노선(path)을 가짐
 num_rsu = 10  # 설치된 RSU의 개수
 num_uav = 10  # UAV의 개수
@@ -20,8 +22,9 @@ poi_radius = 200 # POI로부터 UAV가 위치하는 최대 반경
 rsu_distance = 50 # RSU가 설치될 때 서로간의 최소 이격거리
 time_interval = 1 
 simul_time = 200 # 시뮬레이션을 반복하는 횟수(t)
-bus_step = 10 # 버스의 숫자를 변화시키는 횟수(x축)
+bus_step = 2 # 버스의 숫자를 변화시키는 횟수(x축)
 budget_step = 5 # budget 변화 횟수
+budget_diff = 10 # budget 변화량
 task_cpu_cycle = 20 # 단위 TASK 수행에 요구되는 CPU사이클
 task_data_size = 20 # 단위 TASK의 파일용량(MB)
 task_delay= 10 # 단위 TASK 수행의 최대허용 딜레이(초)
@@ -144,22 +147,20 @@ def simulation(time):
                             price_num += 1
 
                     for i in range(len(bus_id_list)):
-
+                        
                         T_transmission = uav.task[1] / uav.bus_list[i][3]
+                        """
                         T_offload = uav.task[0] / uav.bus_list[i][4]
                         E_transmission = T_transmission * uav_transmission_unit_energy
                         E_offload = T_offload * bus_computing_unit_energy * bus_cpu_cycle ** 3
-
+                        """
                         busid = bus_id_list[i]
-						
+
 						# 게임이론에 따라 UAV가 버스로부터 구입할 수 있는 최대의 CPU사이클 계산
-                        try:
-                            MAX_CPU = (uav.BUDGET + 1 * summa) / (buses[busid].price * price_num) - 1
-                        except:
-                            print("!!! zero division ",uav.BUDGET, summa, buses[busid].price, price_num)
-                            print("history : ",buses[busid].price_history)
-                        
-                        if MAX_CPU > 0:
+                        MAX_CPU = max((uav.BUDGET + 1 * summa) / (buses[busid].price * price_num) - 1, 0)
+
+                        # UAV Local에서 실행했을 때와 비교, 더 빠를시 추가
+                        if (MAX_CPU > 0 and MAX_CPU/uav.bus_list[i][4] + T_transmission*min(1,MAX_CPU/uav.task[0])) < MAX_CPU/uav.cpu:
                             bus_uav_list[busid][uav.id] = MAX_CPU
                            
             			
@@ -493,7 +494,7 @@ class UAV:
         self.cpu_cycle = random.uniform(uav_cpu_cycle * 0.5, uav_cpu_cycle)
         self.time_consume = 0
 
-    def purchase_cpu(self, i, bus_id_list, sum,num, T_tran, T_off, E_tran, E_off, aaa):
+    def purchase_cpu(self, i, bus_id_list, sum, num, T_tran, T_off, E_tran, E_off, aaa):
         cost = 0
         buses_sorted = sorted(buses, key=lambda bus: bus.price)
         for bus in buses_sorted:
@@ -507,11 +508,9 @@ class UAV:
 
                     if max_cpu > 0:
                         cost = bus.sell_cpu(max_cpu, self.id)
-
                         temp_t = self.time_consume + T_tran + T_off
-
+                        
                         if cost > 0 and temp_t <= self.task[2] :
-
                             self.time_consume = self.time_consume + temp_t
                             self.buy_cpu += max_cpu
                             self.budget = round(self.budget - cost, 2)
@@ -562,7 +561,6 @@ if __name__ == "__main__":
         uavs.append(new_uav)
 
     bus_diff = int(num_bus / bus_step)
-    budget_diff = 10
     temp_bus_num = num_bus
     temp_uav_num = num_uav
     buses2 = deepcopy(buses)
