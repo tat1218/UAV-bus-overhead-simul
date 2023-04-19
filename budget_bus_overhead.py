@@ -160,7 +160,7 @@ def simulation(time):
                         MAX_CPU = max((uav.BUDGET + 1 * summa) / (buses[busid].price * price_num) - 1, 0)
 
                         # UAV Local에서 실행했을 때와 비교, 더 빠를시 추가
-                        if (MAX_CPU > 0 and MAX_CPU/uav.bus_list[i][4] + T_transmission*min(1,MAX_CPU/uav.task[0])) < MAX_CPU/uav.cpu:
+                        if MAX_CPU > 0 and MAX_CPU/uav.bus_list[i][4] + T_transmission*min(1,MAX_CPU/uav.task[0]) < MAX_CPU/uav.cpu:
                             bus_uav_list[busid][uav.id] = MAX_CPU
                            
             			
