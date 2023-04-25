@@ -13,6 +13,9 @@ import argparse
 # POI 위치 설정
 X, Y, Z = 500, 500, 0
 
+SCHEME = ["Game","Matching","Offloading","Local"]
+NUM_SCHEME = 4
+
 if __name__ == "__main__":
     print("### SIMULATION START ###")
 
@@ -36,18 +39,18 @@ if __name__ == "__main__":
     for i in range(NUM_UAV):
         uavs_original.append(UAV(i, X, Y, Z))
 
-    uav_bus_avg_overhead = [[0 for _ in range(NUM_BUS_STEP)] for _ in range(NUM_UAV_STEP)]
-    uav_avg_utility = [[0 for _ in range(NUM_BUS_STEP)] for _ in range(NUM_UAV_STEP)]       
-    bus_avg_utility = [[0 for _ in range(NUM_BUS_STEP)] for _ in range(NUM_UAV_STEP)]       
+    uav_bus_avg_overhead = [[0 for _ in range(NUM_BUS_STEP)] for _ in range(NUM_SCHEME)]
+    uav_avg_utility = [[0 for _ in range(NUM_BUS_STEP)] for _ in range(NUM_SCHEME)]       
+    bus_avg_utility = [[0 for _ in range(NUM_BUS_STEP)] for _ in range(NUM_SCHEME)]       
 	
     uavs = deepcopy(uavs_original)
 	# UAV 대수 - 버스의 대수를 점점 줄여나가면서 시뮬레이션
-    for i in range(NUM_UAV_STEP):
+    for i in range(len(SCHEME)):
         buses = deepcopy(buses_original)
         for j in range(NUM_BUS_STEP):
-            print(f"### uav num:{NUM_UAV-i*UAV_STEP} bus num:{NUM_BUS-j*BUS_STEP} simulation start")
+            print(f"### scheme:{SCHEME[i]} bus num:{NUM_BUS-j*BUS_STEP} simulation start")
             # simulate
-            simulation(SIMUL_TIME,uavs,buses,scheme="Game")
+            simulation(SIMUL_TIME,uavs,buses,scheme=SCHEME[i])
             print("### SIMULATION RESULT ###")
 
             tmp_overhead = []
@@ -76,19 +79,15 @@ if __name__ == "__main__":
             for j in range(BUS_STEP):
                 del buses[-1]
 
-        for j in range(UAV_STEP):
-            del uavs[-1]
-
 
     x = np.arange(0,NUM_BUS_STEP)
     x = NUM_BUS - x * BUS_STEP
 
     # uav - bus overhead
-    plt.plot(x, uav_bus_avg_overhead[0], label='UAV=10')
-    plt.plot(x, uav_bus_avg_overhead[1], label='UAV=8')
-    plt.plot(x, uav_bus_avg_overhead[2], label='UAV=6')
-    plt.plot(x, uav_bus_avg_overhead[3], label='UAV=4')
-    plt.plot(x, uav_bus_avg_overhead[4], label='UAV=2')
+    plt.plot(x, uav_bus_avg_overhead[0], label='Game Theory')
+    plt.plot(x, uav_bus_avg_overhead[1], label='Matching')
+    plt.plot(x, uav_bus_avg_overhead[2], label='Offloading')
+    plt.plot(x, uav_bus_avg_overhead[3], label='Local')
 
     #plt.gca().invert_xaxis()
     plt.xlabel('# of buses')
@@ -97,11 +96,10 @@ if __name__ == "__main__":
     plt.show()
 
     # uav utility
-    plt.plot(x, uav_avg_utility[0], label='UAV=10')
-    plt.plot(x, uav_avg_utility[1], label='UAV=8')
-    plt.plot(x, uav_avg_utility[2], label='UAV=6')
-    plt.plot(x, uav_avg_utility[3], label='UAV=4')
-    plt.plot(x, uav_avg_utility[4], label='UAV=2')
+    plt.plot(x, uav_avg_utility[0], label='Game Theory')
+    plt.plot(x, uav_avg_utility[1], label='Matching')
+    plt.plot(x, uav_avg_utility[2], label='Offloading')
+    plt.plot(x, uav_avg_utility[3], label='Local')
 
     #plt.gca().invert_xaxis()
     plt.xlabel('# of buses')
@@ -110,11 +108,10 @@ if __name__ == "__main__":
     plt.show()
 
     # bus utility
-    plt.plot(x, bus_avg_utility[0], label='UAV=10')
-    plt.plot(x, bus_avg_utility[1], label='UAV=8')
-    plt.plot(x, bus_avg_utility[2], label='UAV=6')
-    plt.plot(x, bus_avg_utility[3], label='UAV=4')
-    plt.plot(x, bus_avg_utility[4], label='UAV=2')
+    plt.plot(x, bus_avg_utility[0], label='Game Theory')
+    plt.plot(x, bus_avg_utility[1], label='Matching')
+    plt.plot(x, bus_avg_utility[2], label='Offloading')
+    plt.plot(x, bus_avg_utility[3], label='Local')
 
     #plt.gca().invert_xaxis()
     plt.xlabel('# of buses')

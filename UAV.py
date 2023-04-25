@@ -59,7 +59,7 @@ class UAV:
     def add_bus_id(self, bus_id):
         self.bus_id_list.append(bus_id)
 
-    def purchase_cpu(self, bus:Bus, transmission_rate, price_sum, price_num):
+    def purchase_cpu(self, bus:Bus, transmission_rate, price_sum, price_num, is_compare=True):
         # buy cpu from bus
         max_cpu = min(((self.budget+price_sum) / (bus.price*price_num))-1, bus.cpu, self.budget/bus.price, self.task['cpu_cycle'])  # Game theory cpu calculation
 
@@ -68,6 +68,8 @@ class UAV:
         T_off = max_cpu / bus.cpu
         E_trans = T_trans * UAV_TRANSMISSION_UNIT_ENERGY
         E_off = T_off * BUS_COMPUTING_UNIT_ENERGY * BUS_CPU_CYCLE ** 3
+        if is_compare and max_cpu/self.cpu < (T_trans+T_off):
+            return False
 
         if max_cpu > 0:
             temp_t = self.time_consume + T_trans + T_off
@@ -93,6 +95,30 @@ class UAV:
                 return True
         return False
     
+    def matching_bus(self, buses:list[Bus], transmission_rate_list):        # not used
+        # minimum overhead matching
+        self.overhead = 1e9
+        buy_id = -1
+
+        # find minimum overhead
+        for bus in buses:
+            if bus.cpu < self.task_original['cpu_cycle']:
+                continue
+            T_trans = self.task_original['data_size'] / transmission_rate_list[self.id][bus.id]
+            T_off = self.task_original['cpu_cycle'] / bus.cpu
+            E_trans = T_trans * UAV_TRANSMISSION_UNIT_ENERGY
+            E_off = T_off * BUS_COMPUTING_UNIT_ENERGY * BUS_CPU_CYCLE ** 3
+            tmp_overhead = ALPHA * ((T_trans + T_off) / self.T_LOCAL) + (1-ALPHA) * (E_trans) / self.E_LOCAL
+            if tmp_overhead < self.overhead:
+                buy_id = bus.id
+
+        if buy_id == -1:
+            print("ERROR cannot match bus !!!")
+            return 
+        
+        self.budget = 1e9
+        if not self.purchase_cpu(buses[buy_id], transmission_rate_list[self.id][buy_id], 1e9, 1):
+            print("ERROR something is wrong in calculating max_cpu !!!")
     
     def __str__(self):
         return f"UAV at ({self.x}, {self.y}, {self.z})"

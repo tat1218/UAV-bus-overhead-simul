@@ -42,6 +42,9 @@ class Bus:
             self.y = self.location[1]
             # print(f"Bus {self.id} moved to {self.location}")
 
+    def add_uav_id(self, uav_id):
+        self.uav_id_list.append(uav_id)
+
     def change_price(self, new_price):
         self.old_price = self.price
         self.price = new_price
