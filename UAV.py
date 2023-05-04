@@ -15,17 +15,17 @@ class UAV:
         self.z = int(z + random.uniform(MIN_HEIGHT, MAX_HEIGHT))
 
         # init task
-        self.cpu = UAV_CPU_CYCLE
+        self.cpu = float(UAV_CPU_CYCLE)
         self.cpu_cycle = random.uniform(UAV_CPU_CYCLE*0.5,UAV_CPU_CYCLE)        # not used
-        self.task_original = {'cpu_cycle':TASK_CPU_CYCLE, 'data_size':TASK_DATA_SIZE, 'delay':TASK_DELAY}
-        self.T_LOCAL = self.task_original['cpu_cycle'] / self.cpu
-        self.E_LOCAL = self.T_LOCAL * UAV_COMPUTING_UNIT_ENERGY * self.cpu ** 3
         self.init()
 
-    def init(self, budget=BUDGET):
+    def init(self, cpu_cycle=TASK_CPU_CYCLE, data_size=TASK_DATA_SIZE, delay=TASK_DELAY, budget=BUDGET):
         # 매 시간마다 수행
         #self.task = [round(task_cpu_cycle * random.random(), 2), round(task_data_size * random.random(), 2), round(task_delay * random.random(), 2)]
-        self.task = {'cpu_cycle':TASK_CPU_CYCLE, 'data_size':TASK_DATA_SIZE, 'delay':TASK_DELAY}
+        self.task_original = {'cpu_cycle':cpu_cycle, 'data_size':data_size, 'delay':delay}
+        self.T_LOCAL = self.task_original['cpu_cycle'] / self.cpu
+        self.E_LOCAL = self.T_LOCAL * UAV_COMPUTING_UNIT_ENERGY * self.cpu ** 3
+        self.task = {'cpu_cycle':cpu_cycle, 'data_size':data_size, 'delay':delay}
         self.budget = budget
         self.T_local = 0
         self.E_local = 0
@@ -35,6 +35,7 @@ class UAV:
         self.E_offload = 0
         self.overhead = 0
         self.utility = 0
+        self.bus_num = 0
         self.buy_cpu = 0  # 구매한 cpu 양 초기화
         self.bus_id_list = []  # 구매할 버스 리스트 초기화
         self.purchase_bus_id_list = []  # 구매할 버스 리스트 초기화
@@ -47,6 +48,7 @@ class UAV:
     def reset(self):
         self.overhead_list = []
         self.utility_list = []
+        self.bus_num_list = []
 
     def result_update(self):
         self.T_local = self.task['cpu_cycle'] / self.cpu
@@ -55,13 +57,14 @@ class UAV:
         self.overhead = ALPHA * ((self.T_local+self.T_transmission+self.T_offload) / self.T_LOCAL) + (1-ALPHA) * (self.E_transmission + self.E_local) / self.E_LOCAL
         self.overhead_list.append(self.overhead)
         self.utility_list.append(self.utility)
+        self.bus_num_list.append(self.bus_num)
         
     def add_bus_id(self, bus_id):
         self.bus_id_list.append(bus_id)
 
     def purchase_cpu(self, bus:Bus, transmission_rate, price_sum, price_num, is_compare=True):
         # buy cpu from bus
-        max_cpu = min(((self.budget+price_sum) / (bus.price*price_num))-1, bus.cpu, self.budget/bus.price, self.task['cpu_cycle'])  # Game theory cpu calculation
+        max_cpu = float(min(((self.budget+price_sum) / (bus.price*price_num))-1, bus.cpu, self.budget/bus.price, self.task['cpu_cycle']))  # Game theory cpu calculation
 
         ratio = max_cpu/self.task_original['cpu_cycle']
         T_trans = ratio * self.task_original['data_size'] / transmission_rate
@@ -82,6 +85,7 @@ class UAV:
                 self.budget = round(self.budget - cost, 2)
                 self.purchase_bus_id_list.append(bus.id)
                 self.utility += math.log10(1+max_cpu)       # alpha = 1, beta = 1
+                self.bus_num += 1
 
                 # task
                 self.task['cpu_cycle'] = self.task['cpu_cycle'] - max_cpu
