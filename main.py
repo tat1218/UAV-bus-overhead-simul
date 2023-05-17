@@ -17,13 +17,13 @@ RANDOM_TASK = [{'name':"small",'min':5,'max':15},{'name':"medium",'min':15,'max'
 SCHEME = ["Game","Matching","Offloading","Local"]
 SIMUL_NAME = ["Bus Num","UAV Num","Budget","Scheme","Task Size"]
 SAVE_X_NAME = ["Bus","UAV","Budget","Scheme","TaskSize"]
-SAVE_Y_NAME = ["overhead","UAV_utility","bus_utility","bus_num"]
+SAVE_Y_NAME = ["overhead","UAV_utility","bus_utility","bus_num","price"]
 
 NUM_OBJECT = [NUM_BUS,NUM_UAV,BUDGET,len(SCHEME),len(RANDOM_TASK)]
 NUM_STEP = [NUM_BUS_STEP, NUM_UAV_STEP, NUM_BUDGET_STEP, len(SCHEME),len(RANDOM_TASK)]
 STEP = [BUS_STEP, UAV_STEP, BUDGET_STEP, 1, 1]
 X_LABEL = ["Number of buses","Number of UAVs","Budget","Scheme","Task Size"]
-Y_LABEL = ["UAV overhead","UAV utility","Bus utility","UAV Bus num"]
+Y_LABEL = ["UAV overhead","UAV utility","Bus utility","UAV Bus num","cpu price"]
 LEGEND_LABEL = ["Bus=","UAV=","Budget=","",""]
 
 def simul_value(type,i):
@@ -82,7 +82,8 @@ if __name__ == "__main__":
     uav_avg_utility = [[0 for _ in range(NUM_STEP[args.x])] for _ in range(NUM_STEP[args.y])]       
     bus_avg_utility = [[0 for _ in range(NUM_STEP[args.x])] for _ in range(NUM_STEP[args.y])]       
     uav_avg_bus_num = [[0 for _ in range(NUM_STEP[args.x])] for _ in range(NUM_STEP[args.y])]   
-	
+    bus_avg_price = [[0 for _ in range(NUM_STEP[args.x])] for _ in range(NUM_STEP[args.y])]
+
     buses = deepcopy(buses_original)
     uavs = deepcopy(uavs_original)
     scheme = SCHEME[0]
@@ -115,6 +116,7 @@ if __name__ == "__main__":
             tmp_uav_utility = []
             tmp_bus_utility = []
             tmp_bus_num = []
+            tmp_bus_avg_price = []
             
             under = 0
             upper = 0
@@ -130,14 +132,18 @@ if __name__ == "__main__":
             
             for bus in buses:
                 avg_utility = mean_without_outliers(bus.utility_list,4)
+                avg_price = round(Average(bus.price_list), 4)
+                #print(bus.price_list)
                 tmp_bus_utility.append(avg_utility)
-                print(f"BUS(ID={bus.id}) has utility : {avg_utility}")
+                tmp_bus_avg_price.append(avg_price)
+                print(f"BUS(ID={bus.id}) has utility : {avg_utility}, price : {avg_price}")
 
             uav_bus_avg_overhead[i][j] = round(Average(tmp_overhead), 4) #mean_without_outliers(tmp_overhead,4)
             print("over : ",uav_bus_avg_overhead[i][j])
             uav_avg_utility[i][j] = round(Average(tmp_uav_utility), 4) #mean_without_outliers(tmp_uav_utility,4)
             uav_avg_bus_num[i][j] = round(Average(tmp_bus_num), 4) #mean_without_outliers(tmp_bus_num,4)
             bus_avg_utility[i][j] = round(Average(tmp_bus_utility), 4) #mean_without_outliers(tmp_bus_utility,4)
+            bus_avg_price[i][j] = round(Average(tmp_bus_avg_price), 4)
 
             #print(f"UAV overhead : {AVE}, Under : {under}, Upper : {upper}")
             if args.x == 0:
@@ -177,11 +183,11 @@ if __name__ == "__main__":
         elif args.y == 4:
             v = RANDOM_TASK[NUM_OBJECT[args.y]-v]['name']
         legend_value.append(v)
-    data = [uav_bus_avg_overhead,uav_avg_utility,bus_avg_utility,uav_avg_bus_num]
+    data = [uav_bus_avg_overhead,uav_avg_utility,bus_avg_utility,uav_avg_bus_num,bus_avg_price]
 
     plt.style.use(['science','ieee'])
 
-    for i in range(4):
+    for i in range(5):
         for j in range(len(legend_value)):
             plt.plot(x, data[i][j], label=LEGEND_LABEL[args.y]+str(legend_value[j]))
             #print(i,j,data[i][j])

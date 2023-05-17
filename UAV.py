@@ -49,6 +49,7 @@ class UAV:
         self.overhead_list = []
         self.utility_list = []
         self.bus_num_list = []
+        #self.price_list = []
 
     def result_update(self):
         self.T_local = self.task['cpu_cycle'] / self.cpu
@@ -78,6 +79,7 @@ class UAV:
             temp_t = self.time_consume + T_trans + T_off
             if temp_t <= self.task['delay']:
                 cost = bus.sell_cpu(max_cpu, self.id)
+                #self.price_list.append(cost)
                 self.bus_id_list.remove(bus.id)
 
                 self.time_consume = self.time_consume + temp_t

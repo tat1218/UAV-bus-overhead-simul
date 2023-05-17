@@ -124,7 +124,7 @@ def simulation(simul_time, uavs:list[UAV.UAV], buses:list[Bus.Bus], scheme="Game
                             price_num += 1
                     for bus_id in uav.bus_id_list:
                         # 게임이론에 따라 UAV가 버스로부터 구입할 수 있는 최대의 CPU사이클 계산
-                        MAX_CPU = (BUDGET + 1 * price_sum) / (buses[bus_id].price * price_num) - 1
+                        MAX_CPU = min(uav.task_original['cpu_cycle'],(uav.budget + 1 * price_sum) / (buses[bus_id].price * price_num) - 1)
                         if MAX_CPU > 0:
                             uav_bus_maxcpu_list[uav.id][bus_id] = MAX_CPU
                         
@@ -143,7 +143,7 @@ def simulation(simul_time, uavs:list[UAV.UAV], buses:list[Bus.Bus], scheme="Game
                     # 변경된 price 계산
                     temp_price = max(round(bus.price + (demand_sum_from_uav - bus.MAX_CPU) / SIGMA_SPEED,4), EPSILON)
                     # 변경된 price와 기존 price의 차이가 threshold 이상인지 검사
-                    if abs((temp_price - bus.price)/bus.price) >= (1 / SIGMA_SPEED):
+                    if abs(temp_price - bus.price) >= (1 / SIGMA_SPEED):
                         
                         # 변경된 price와 기존 price의 차이가 threshold 이상이지만, 2회전 price와 가격차이가 크지 않은지 검사
                         if abs(bus.old_price - temp_price) <= (1 / SIGMA_SPEED) * 2:

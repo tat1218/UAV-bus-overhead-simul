@@ -15,12 +15,12 @@ RSU_DISTANCE = 50 # RSU가 설치될 때 서로간의 최소 이격거리
 TIME_INTERVAL = 1 
 SIMUL_TIME = 200 # 시뮬레이션을 반복하는 횟수(t)
 
-BUS_STEP = 5        # 버스의 숫자 변화량
-NUM_BUS_STEP = 10   # 버스의 숫자를 변화시키는 횟수(X축)
+BUS_STEP = 10        # 버스의 숫자 변화량
+NUM_BUS_STEP = 4   # 버스의 숫자를 변화시키는 횟수(X축)
 UAV_STEP = 2        # UAV 숫자 변화량
 NUM_UAV_STEP = 4    # UAV의 숫자를 변화시키는 횟수
-BUDGET_STEP = 10    # budget 변화량
-NUM_BUDGET_STEP = 4 # budget 변화 횟수
+BUDGET_STEP = 5    # budget 변화량
+NUM_BUDGET_STEP = 10 # budget 변화 횟수
 
 TASK_CPU_CYCLE = 20 # 단위 TASK 수행에 요구되는 CPU사이클
 TASK_DATA_SIZE = 20 # 단위 TASK의 파일용량(MB)

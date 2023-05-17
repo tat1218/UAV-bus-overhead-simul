@@ -31,6 +31,7 @@ class Bus:
 
         self.price_history = []
         self.utility_list = []
+        self.price_list = []
 
     def move(self):
         if self.type == 0:
@@ -59,3 +60,4 @@ class Bus:
     def result_update(self):
         # GU utility update
         self.utility_list.append(self.price * (self.MAX_CPU - self.cpu))
+        self.price_list.append(self.price)
