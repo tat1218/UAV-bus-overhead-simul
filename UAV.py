@@ -40,6 +40,7 @@ class UAV:
         self.bus_id_list = []  # 구매할 버스 리스트 초기화
         self.purchase_bus_id_list = []  # 구매할 버스 리스트 초기화
         self.time_consume = 0
+        #self.buy_price = []
 
         # for scheme
         self.closest = []
@@ -49,7 +50,7 @@ class UAV:
         self.overhead_list = []
         self.utility_list = []
         self.bus_num_list = []
-        #self.price_list = []
+        self.price_list = []
 
     def result_update(self):
         self.T_local = self.task['cpu_cycle'] / self.cpu
@@ -59,6 +60,13 @@ class UAV:
         self.overhead_list.append(self.overhead)
         self.utility_list.append(self.utility)
         self.bus_num_list.append(self.bus_num)
+
+    def price_result_update(self,buses:list[Bus]):
+        s = 0
+        for bid in self.bus_id_list:
+            s += buses[bid].price
+        if s > 0:
+            self.price_list.append(s/len(self.bus_id_list))
         
     def add_bus_id(self, bus_id):
         self.bus_id_list.append(bus_id)
@@ -79,7 +87,7 @@ class UAV:
             temp_t = self.time_consume + T_trans + T_off
             if temp_t <= self.task['delay']:
                 cost = bus.sell_cpu(max_cpu, self.id)
-                #self.price_list.append(cost)
+                #self.buy_price.append(bus.price)
                 self.bus_id_list.remove(bus.id)
 
                 self.time_consume = self.time_consume + temp_t

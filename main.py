@@ -44,7 +44,7 @@ def mean_without_outliers(lst:list, decision):
     l = len(lst)
     l_min = int(l*0.1)
     l_max = int(l*0.9)
-    lst = lst[l_min:l_max]
+    #lst = lst[l_min:l_max]
     return round(Average(lst), decision)
 
 if __name__ == "__main__":
@@ -52,24 +52,52 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="_")
     parser.add_argument("--x", type=int, default=0, help="x value in graph. range 0~3")
     parser.add_argument("--y", type=int, default=1, help="label in graph, range 0~3")
+    parser.add_argument("--real", type=bool, default=0, help="flag for using real data")
     args = parser.parse_args()
 
     print("### SIMULATION START ###")
-
-    # make environment
     paths = []
-    for i in range(NUM_BUS):
-        path = [(random.randint(0, MAP_SIZE), random.randint(0, MAP_SIZE))]
-        while len(path) < NUM_PATH:
-            x, y = path[-1]
-            next_x = random.randint(max(0, x - random.randint(1, 50)), min(MAP_SIZE, x + random.randint(1, 50)))
-            next_y = random.randint(max(0, y - random.randint(1, 50)), min(MAP_SIZE, y + random.randint(1, 50)))
-            if math.dist((x, y), (next_x, next_y)) >= 50:
-                path.append((next_x, next_y))
-        paths.append(path)
+    simul_time = 0
+    num_bus = NUM_BUS
+    num_x_step = NUM_STEP[args.x]
+    num_y_step = NUM_STEP[args.y]
+
+    if args.real:
+        if args.x == 0:
+            num_x_step = 1
+        if args.y == 0:
+            num_y_step = 1
+        simul_time = 3
+
+        with open("./buspos.txt","r") as fp:
+            t=0
+            while t<simul_time:
+                path = []
+                line = fp.readline()
+                poslst = line.split('/')[:-1]
+                for pos in poslst:
+                    x,y = np.array(pos.split(','),dtype=np.float32)
+                    path.append((x,y))
+                paths.append(path)
+                t+=1
+
+        paths = np.array(paths).transpose((1,0,2))
+        num_bus = len(paths)
+    else:
+    # make environment
+        simul_time = SIMUL_TIME
+        for i in range(num_bus):
+            path = [(random.randint(0, MAP_SIZE), random.randint(0, MAP_SIZE))]
+            while len(path) < NUM_PATH:
+                x, y = path[-1]
+                next_x = random.randint(max(0, x - random.randint(1, 50)), min(MAP_SIZE, x + random.randint(1, 50)))
+                next_y = random.randint(max(0, y - random.randint(1, 50)), min(MAP_SIZE, y + random.randint(1, 50)))
+                if math.dist((x, y), (next_x, next_y)) >= 50:
+                    path.append((next_x, next_y))
+            paths.append(path)
 
     buses_original = []
-    for i in range(NUM_BUS):
+    for i in range(num_bus):
         buses_original.append(Bus(i, 0, paths[i]))
 
     # POI로부터 일정거리 이내에 위치하도록 UAV 생성
@@ -78,11 +106,11 @@ if __name__ == "__main__":
         uavs_original.append(UAV(i, X, Y, Z))
 
     # for graph
-    uav_bus_avg_overhead = [[0 for _ in range(NUM_STEP[args.x])] for _ in range(NUM_STEP[args.y])]
-    uav_avg_utility = [[0 for _ in range(NUM_STEP[args.x])] for _ in range(NUM_STEP[args.y])]       
-    bus_avg_utility = [[0 for _ in range(NUM_STEP[args.x])] for _ in range(NUM_STEP[args.y])]       
-    uav_avg_bus_num = [[0 for _ in range(NUM_STEP[args.x])] for _ in range(NUM_STEP[args.y])]   
-    bus_avg_price = [[0 for _ in range(NUM_STEP[args.x])] for _ in range(NUM_STEP[args.y])]
+    uav_bus_avg_overhead = [[0 for _ in range(num_x_step)] for _ in range(num_y_step)]
+    uav_avg_utility =      [[0 for _ in range(num_x_step)] for _ in range(num_y_step)]       
+    bus_avg_utility =      [[0 for _ in range(num_x_step)] for _ in range(num_y_step)]       
+    uav_avg_bus_num =      [[0 for _ in range(num_x_step)] for _ in range(num_y_step)]   
+    bus_avg_price =        [[0 for _ in range(num_x_step)] for _ in range(num_y_step)]
 
     buses = deepcopy(buses_original)
     uavs = deepcopy(uavs_original)
@@ -90,7 +118,7 @@ if __name__ == "__main__":
     budget = BUDGET
     task_range = {'min':TASK_CPU_CYCLE,'max':TASK_CPU_CYCLE}
 	# UAV 대수 - 버스의 대수를 점점 줄여나가면서 시뮬레이션
-    for i in range(NUM_STEP[args.y]):
+    for i in range(num_y_step):
         if args.y == 3:
             scheme = SCHEME[i]
         elif args.y == 4:
@@ -105,11 +133,11 @@ if __name__ == "__main__":
         elif args.x == 3:
             pass
 
-        for j in range(NUM_STEP[args.x]):
+        for j in range(num_x_step):
             print(f"### {SIMUL_NAME[args.y]}:{simul_value(args.y,i)} {SIMUL_NAME[args.x]}:{simul_value(args.x,j)} simulation start")
 
             # simulate
-            simulation(SIMUL_TIME,uavs,buses,scheme=scheme,budget=budget,random_task_range=task_range)
+            simulation(simul_time,uavs,buses,scheme=scheme,budget=budget,random_task_range=task_range)
             print("### SIMULATION RESULT ###")
 
             tmp_overhead = []
@@ -122,24 +150,30 @@ if __name__ == "__main__":
             upper = 0
 
             for uav in uavs:
-                avg_overhead = mean_without_outliers(uav.overhead_list,4)
-                avg_utility = mean_without_outliers(uav.utility_list,4)
-                avg_bus_num = mean_without_outliers(uav.bus_num_list,4)
-                tmp_overhead.append(avg_overhead)
-                tmp_uav_utility.append(avg_utility)
-                tmp_bus_num.append(avg_bus_num)
-                print(f"UAV(ID={uav.id}) has overhead : {avg_overhead}, utility : {avg_utility}")
+                print(uav.overhead_list)
+                if len(uav.overhead_list) > 0:
+                    avg_overhead = mean_without_outliers(uav.overhead_list,4)
+                    tmp_overhead.append(avg_overhead)
+                if len(uav.utility_list) > 0:
+                    avg_utility = mean_without_outliers(uav.utility_list,4)
+                    tmp_uav_utility.append(avg_utility)
+                if len(uav.bus_num_list) > 0:
+                    avg_bus_num = mean_without_outliers(uav.bus_num_list,4)
+                    tmp_bus_num.append(avg_bus_num)
+                if len(uav.price_list) > 0:
+                    avg_price = round(Average(uav.price_list), 4)
+                    tmp_bus_avg_price.append(avg_price)
+
+                print(f"UAV(ID={uav.id}) has overhead")# : {avg_overhead}, utility : {avg_utility}, price : {avg_price}")
             
             for bus in buses:
-                avg_utility = mean_without_outliers(bus.utility_list,4)
-                avg_price = round(Average(bus.price_list), 4)
+                if len(bus.utility_list) > 0:
+                    avg_utility = mean_without_outliers(bus.utility_list,4)
                 #print(bus.price_list)
-                tmp_bus_utility.append(avg_utility)
-                tmp_bus_avg_price.append(avg_price)
-                print(f"BUS(ID={bus.id}) has utility : {avg_utility}, price : {avg_price}")
+                    tmp_bus_utility.append(avg_utility)
+                print(f"BUS(ID={bus.id}) has utility ")#: {avg_utility}")
 
             uav_bus_avg_overhead[i][j] = round(Average(tmp_overhead), 4) #mean_without_outliers(tmp_overhead,4)
-            print("over : ",uav_bus_avg_overhead[i][j])
             uav_avg_utility[i][j] = round(Average(tmp_uav_utility), 4) #mean_without_outliers(tmp_uav_utility,4)
             uav_avg_bus_num[i][j] = round(Average(tmp_bus_num), 4) #mean_without_outliers(tmp_bus_num,4)
             bus_avg_utility[i][j] = round(Average(tmp_bus_utility), 4) #mean_without_outliers(tmp_bus_utility,4)
@@ -172,9 +206,9 @@ if __name__ == "__main__":
 
     # print result
 
-    x_idx = np.arange(0,NUM_STEP[args.x])
+    x_idx = np.arange(0,num_x_step)
     x = NUM_OBJECT[args.x] - x_idx*STEP[args.x]
-    legend_value_idx = np.arange(0,NUM_STEP[args.y])
+    legend_value_idx = np.arange(0,num_y_step)
     legend_value = []
     for i in legend_value_idx:
         v = NUM_OBJECT[args.y] - i * STEP[args.y]

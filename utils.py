@@ -238,3 +238,4 @@ def simulation(simul_time, uavs:list[UAV.UAV], buses:list[Bus.Bus], scheme="Game
 		# UAV의 overhead와 utility를 계산 & 리스트에 추가
         for uav in uavs:
             uav.result_update()
+            uav.price_result_update(buses)
